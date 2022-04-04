@@ -140,14 +140,8 @@ Proof.
   intros P T.
   induction T.
   intros H1 n t H2.
-  simpl.
-  unfold bst_prop.
-  simpl.
-  simpl. 
-
-  
-  intros.
-  simpl.
+  simpl. split.
+  (*Question: Not sure how to proceed next *)
 
 (* Let us now formally prove the validity of the insert function *)
 Theorem insert_correct : forall (T : tree) (N : nat), bst T -> bst (insert N T).
@@ -167,14 +161,6 @@ Proof.
   destruct (ltb_reflect N n). (* Use the reflection function defined above *)
   simpl.
   split.
-  
-  
-  
-  
-
-
-
-
 
 End verify_insert.
 
