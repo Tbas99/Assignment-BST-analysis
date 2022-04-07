@@ -41,10 +41,27 @@ Fixpoint bst_prop (P : nat -> tree -> Prop) (T : tree) : Prop :=
     - The key stored must be less than or equal all the keys in the
       node's right subtree.
 *)
+(*
 Fixpoint bst (T : tree) : Prop :=
   match T with
   | leaf => True
   | node l n r => (bst_prop (fun x _ => x < n) l) /\ (bst_prop (fun x _ => (x > n) \/ (x = n)) r) /\ bst l /\ bst r
+  end.
+*)
+
+Fixpoint bst (T : tree) : Prop :=
+  match T with
+  | leaf => True
+  | node l n r => bst l /\ bst r /\ 
+    match l with
+    | leaf => True
+    | node l_l n_l r_l => (n_l < n)
+    end
+    /\
+    match r with
+    | leaf => True
+    | node l_r n_r r_r => (n_r = n) \/ (n_r > n)
+    end
   end.
 
 (* Check if bst classification is correct *)
@@ -143,8 +160,6 @@ Proof.
   simpl. split.
 Admitted.
 
-  (*Question: Not sure how to proceed next *)
-
 (* Let us now formally prove the validity of the insert function *)
 Theorem insert_correct : forall (T : tree) (N : nat), bst T -> bst (insert N T).
 Proof.
@@ -154,16 +169,25 @@ Proof.
   intros.
   simpl; auto.
 
-  (* Now prove the step case *)
+  (* Now for the step case*)
   intros.
   inversion H. (* To discover the cases which must be true for this to hold *)
+  simpl.
   destruct H1 as [H1 H2].
   destruct H2 as [H2 H3].
-  simpl.
   destruct (ltb_reflect N n). (* Use the reflection function defined above *)
+  intuition.
   simpl.
   split.
+  assumption.
+  split.
+  assumption.
+  split.
+  destruct (insert N T1).
+  assumption.
 Admitted.
+
+
 End verify_insert.
 
 
