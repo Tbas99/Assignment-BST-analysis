@@ -141,6 +141,8 @@ Proof.
   induction T.
   intros H1 n t H2.
   simpl. split.
+Admitted.
+
   (*Question: Not sure how to proceed next *)
 
 (* Let us now formally prove the validity of the insert function *)
@@ -161,8 +163,123 @@ Proof.
   destruct (ltb_reflect N n). (* Use the reflection function defined above *)
   simpl.
   split.
-
+Admitted.
 End verify_insert.
 
+
+(* Question 5.
+Define a function sort that takes an arbitrary tree and sorts it, 
+i.e. it transforms it into a binary search tree. 
+Hint: you can define two auxiliary functions, 
+one that stores the elements of a tree in a list 
+and one that builds a binary search tree from the elements of a list. *)
+
+Section bst_sort.
+
+Inductive natlist : Set :=
+  | nil : natlist
+  | cons : nat -> natlist -> natlist.
+
+Fixpoint append (l m : natlist) {struct l} : natlist :=
+  match l with
+  | nil => m
+  | cons x xs => cons x (append xs m)
+  end.
+
+Notation "a ++ b" := (append a b).
+
+Fixpoint to_list (T: tree) : natlist :=
+  match T with
+  | leaf => nil
+  | node l n r => cons n ((to_list l) ++ (to_list r))
+  end.
+
+Fixpoint to_bst (T : natlist) : tree :=
+  match T with
+  | nil => leaf
+  | cons a b => insert a (to_bst b)
+  end.
+
+Definition sort (T : tree) : tree := 
+  to_bst (to_list T).
+
+Eval compute in (to_list test_type).
+Eval compute in (sort test_type).
+
+(* 
+        10
+       /
+      4
+       \
+        6
+ *)
+
+
+(* Question 6.
+Prove that the result of the sort function is always a binary search tree. *)
+
+Theorem tolist_empty : to_list leaf = nil.
+Proof.
+simpl.
+reflexivity.
+Qed.
+
+Theorem sort_produces_bst : forall (T : tree), bst (sort T).
+Proof.
+intros.
+induction T.
+simpl.
+trivial.
+unfold sort.
+unfold to_list.
+unfold to_bst.
+simpl.
+Admitted.
+
+(* Question 7.
+Given the predicate occurs expressing that an element belongs to a tree, prove
+that the sorted version of a tree contains the same elements as the original
+one *)
+
+Fixpoint occurs (T : tree) (e: nat) {struct T} : Prop :=
+  match T with
+  | leaf => False
+  | node l n r => n = e \/ occurs l n \/ occurs r n
+  end.
+
+
+
+
+Theorem sort_contains_same_element : forall (T : tree)(e : nat), occurs T e <-> occurs (sort T) e.
+Proof.
+intros.
+induction T.
+simpl.
+tauto.
+destruct IHT1.
+destruct IHT2.
+split.
+intros.
+simpl in H3.
+destruct H3.
+unfold sort.
+simpl.
+Suggest.
+
+
+
+Admitted.
+
+Lemma eq_insert: forall (T : tree)(e : nat), occurs (insert e T) e.
+Proof.
+intros.
+induction T.
+simpl.
+auto.
+simpl.
+
+Qed.
+
+End bst_sort.
 
 
