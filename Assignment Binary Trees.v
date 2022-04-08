@@ -24,10 +24,10 @@ Check node (node (node leaf 2 leaf) 5 (node leaf 7 leaf)) 10 (node (node leaf 12
   With this we take a predicate P and check if it holds on all subtree's
   by inductively traversing the subtree's.
 *)
-Fixpoint bst_prop (P : nat -> tree -> Prop) (T : tree) : Prop :=
-  match T with
-  | leaf => True (* A leaf trivially satisfies the bst property *)
-  | node l n r => P n T /\ bst_prop P l /\ bst_prop P r
+Fixpoint forall_nodes (P: nat -> Prop) (t: tree) : Prop :=
+  match t with
+  | leaf => True
+  | node l n r => P n /\ forall_nodes P l /\ forall_nodes P r
   end.
 
 (*
@@ -41,27 +41,14 @@ Fixpoint bst_prop (P : nat -> tree -> Prop) (T : tree) : Prop :=
     - The key stored must be less than or equal all the keys in the
       node's right subtree.
 *)
-(*
 Fixpoint bst (T : tree) : Prop :=
   match T with
   | leaf => True
-  | node l n r => (bst_prop (fun x _ => x < n) l) /\ (bst_prop (fun x _ => (x > n) \/ (x = n)) r) /\ bst l /\ bst r
-  end.
-*)
-
-Fixpoint bst (T : tree) : Prop :=
-  match T with
-  | leaf => True
-  | node l n r => bst l /\ bst r /\ 
-    match l with
-    | leaf => True
-    | node l_l n_l r_l => (n_l < n)
-    end
-    /\
-    match r with
-    | leaf => True
-    | node l_r n_r r_r => (n_r = n) \/ (n_r > n)
-    end
+  | node l n r => 
+         forall_nodes (fun x => x < n) l 
+      /\ forall_nodes (fun x => x > n) r 
+      /\ bst l 
+      /\ bst r
   end.
 
 (* Check if bst classification is correct *)
@@ -103,7 +90,10 @@ End verify_bst_invariant.
 Fixpoint insert (N : nat) (T : tree) : tree :=
   match T with
   | leaf => node leaf N leaf
-  | node l n r => if (N <? n) then node (insert N l) n r else if (N >=? n) then node l n (insert N r) else node l n r
+  | node l n r => 
+      if (N <? n) then node (insert N l) n r 
+      else if (n <? N) then node l n (insert N r) 
+      else node l n r
   end.
 
 (* Let us prove the correctness of our insert function *)
@@ -141,6 +131,7 @@ Proof.
   apply Nat.ltb_lt. (* Lemma to solve the goal - Defined in Arith *)
 Qed.
 
+
 (* 
   For our formal proof we also need another theorem. This theorem
   states that insert should preserve any predicate P on a node,
@@ -150,41 +141,52 @@ Qed.
   bst property holds on P and T, then it should hold on all subsequent
   subnodes below the starting node T.
 *)
-Theorem bst_prop_insert : forall (P : nat -> tree -> Prop) (T : tree),
-     bst_prop P T -> forall (n : nat) (t : tree),
-     P n t -> bst_prop P (insert n T).
+Lemma forall_nodes_insert : forall (P : nat -> Prop) (t : tree),
+    forall_nodes P t -> forall (k : nat), P k -> forall_nodes P (insert k t).
 Proof.
-  intros P T.
-  induction T.
-  intros H1 n t H2.
-  simpl. split.
-Admitted.
+  intros.
+  induction t.
+  simpl.
+  intuition.
+
+  inversion H.
+  simpl in *.
+  destruct H.
+  destruct H3.
+  destruct H2.
+
+  destruct (k <? n).
+  simpl.
+  intuition.
+  destruct (n <? k).
+  simpl.
+  intuition.
+  simpl.
+  intuition.
+Qed.
 
 (* Let us now formally prove the validity of the insert function *)
-Theorem insert_correct : forall (T : tree) (N : nat), bst T -> bst (insert N T).
+Theorem insert_correct : forall (T : tree) (n : nat), bst T -> bst (insert n T).
 Proof.
   (* Apply induction and prove the base case *)
-  intros T N.
+  intros.
   induction T.
   intros.
-  simpl; auto.
+  simpl.
+  auto.
 
   (* Now for the step case*)
   intros.
   inversion H. (* To discover the cases which must be true for this to hold *)
   simpl.
-  destruct H1 as [H1 H2].
-  destruct H2 as [H2 H3].
-  destruct (ltb_reflect N n). (* Use the reflection function defined above *)
-  intuition.
+  destruct (n <? n0).
   simpl.
-  split.
-  assumption.
-  split.
-  assumption.
-  split.
-  destruct (insert N T1).
-  assumption.
+  intuition.
+  apply forall_nodes_insert.
+  auto.
+
+  (* Not sure what to do now... *)
+
 Admitted.
 
 
@@ -248,17 +250,81 @@ simpl.
 reflexivity.
 Qed.
 
+
+Theorem duh : forall T, sort(T) = to_bst (to_list T).
+Proof.
+auto.
+Qed.
+
+Theorem duh2: forall T n, bst (insert n (sort T)) <-> bst (insert n (to_bst (to_list T))).
+Proof.
+intuition.
+Qed.
+
+Theorem stuck_on_this3 : forall T1 T2 n, bst(sort (node T1 n T2)) <-> bst( insert n (to_bst(to_list(T1) ++ to_list(T2)))).
+Proof.
+intuition.
+Qed.
+
+Theorem stuck_on_this2 : forall T1 T2 n, 
+cons n ((to_list T1) ++ (to_list T2)) = to_list(node T1 n T2).
+Proof.
+auto.
+Qed.
+
+Theorem stuck_on_this : forall T1 T2 n, 
+  bst (insert n (sort T1)) 
+/\ bst (insert n (sort T2))
+-> bst (sort (node T1 n T2)).
+Proof.
+intros.
+destruct H.
+apply stuck_on_this3.
+
+rewrite duh2 in H.
+rewrite duh2 in H0.
+
+
+
+Admitted.
+
+
+
 Theorem sort_produces_bst : forall (T : tree), bst (sort T).
 Proof.
 intros.
 induction T.
 simpl.
 trivial.
-unfold sort.
-unfold to_list.
-unfold to_bst.
-simpl.
-Admitted.
+apply (insert_correct (to_bst(to_list T1)) n) in IHT1.
+apply (insert_correct (to_bst(to_list T2)) n) in IHT2.
+apply stuck_on_this.
+auto.
+Qed.
+
+
+
+Theorem empty_tree : forall (n : nat), bst(insert n leaf).
+Proof.
+  intros.
+  unfold insert.
+  constructor.
+  simpl.
+  auto.
+  simpl.
+  auto.
+Qed.
+
+Fixpoint bst_prop (P : nat -> tree -> Prop) (T : tree) : Prop :=
+  match T with
+  | leaf => True (* A leaf trivially satisfies the bst property *)
+  | node l n r => P n T /\ bst_prop P l /\ bst_prop P r
+  end.
+
+
+
+
+
 
 (* Question 7.
 Given the predicate occurs expressing that an element belongs to a tree, prove
@@ -301,7 +367,6 @@ induction T.
 simpl.
 auto.
 simpl.
-
 Qed.
 
 End bst_sort.
