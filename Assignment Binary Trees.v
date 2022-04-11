@@ -171,24 +171,33 @@ Proof.
   (* Apply induction and prove the base case *)
   intros.
   induction T.
-  intros.
   simpl.
   auto.
 
   (* Now for the step case*)
-  intros.
-  inversion H. (* To discover the cases which must be true for this to hold *)
-  simpl.
-  destruct (n <? n0).
-  simpl.
+  inversion H.
   intuition.
-  apply forall_nodes_insert.
-  auto.
-
-  (* Not sure what to do now... *)
-
-Admitted.
-
+  simpl.
+  destruct (ltb_reflect n n0).
+  constructor.
+  apply forall_nodes_insert; assumption.
+  split.
+  assumption.
+  split; assumption.
+  destruct (ltb_reflect n0 n).
+  simpl.
+  split.
+  assumption.
+  split.
+  apply forall_nodes_insert; assumption.
+  split; assumption.
+  simpl.
+  split.
+  assumption.
+  split.
+  assumption.
+  split; assumption.
+Qed.
 
 End verify_insert.
 
