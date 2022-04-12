@@ -7,6 +7,7 @@
 Require Import Lia.
 Require Import Arith.
 Require Import Bool.
+Require Import List.
 
 (* Notations *)
 Notation "a >=? b" := (Nat.leb b a) (at level 70) : nat_scope. (* Issue with Nat not defining this? *)
@@ -123,7 +124,7 @@ Qed.
   operator, as defined in our insert function, we shall write
   the corresponding reflection function.
 *)
-Lemma ltb_reflect : forall x y, reflect (x < y) (x <? y).
+Theorem ltb_reflect : forall x y, reflect (x < y) (x <? y).
 Proof.
   intros.
   apply iff_reflect. (* Convert reflect to its value *)
@@ -131,17 +132,16 @@ Proof.
   apply Nat.ltb_lt. (* Lemma to solve the goal - Defined in Arith *)
 Qed.
 
-
 (* 
   For our formal proof we also need another theorem. This theorem
   states that insert should preserve any predicate P on a node,
   similar to the one we defined for inductively checking the bst
   property.
-  In summary; for every predicate P and tree T we check that if the
-  bst property holds on P and T, then it should hold on all subsequent
-  subnodes below the starting node T.
+  In summary; for every predicate P and tree t we check that if the
+  bst property holds on P and t, then it should hold on all subsequent
+  subnodes below the starting node t.
 *)
-Lemma forall_nodes_insert : forall (P : nat -> Prop) (t : tree),
+Theorem forall_nodes_insert : forall (P : nat -> Prop) (t : tree),
     forall_nodes P t -> forall (k : nat), P k -> forall_nodes P (insert k t).
 Proof.
   intros.
@@ -201,7 +201,6 @@ Qed.
 
 End verify_insert.
 
-
 (* Question 5.
 Define a function sort that takes an arbitrary tree and sorts it, 
 i.e. it transforms it into a binary search tree. 
@@ -249,69 +248,147 @@ Eval compute in (sort test_type).
         6
  *)
 
+(* 
+  Similar to the binary search tree, we define a predicate that 
+  should hold on all elements of the list.
+*)
+Fixpoint forall_elements (P: nat -> Prop) (l: natlist) : Prop :=
+  match l with
+  | nil => True
+  | cons a b => P a /\ forall_elements P b
+  end.
+
+(*
+  All list elements should satisfy a property defined by predicate P.
+*)
+Theorem forall_elements_app : forall (P: nat -> Prop) (l1 l2 : natlist),
+  forall_elements P l1 -> forall_elements P l2 -> forall_elements P (l1 ++ l2).
+Proof.
+  induction l1.
+  (* Base case *)
+  intros.
+  simpl.
+  auto.
+
+  (* Step case *)
+  intros.
+  simpl.
+  inversion H.
+  split.
+  assumption.
+  apply IHl1; assumption.
+Qed.
+
+(**)
+Theorem list_preserves_tree_predicate : forall (P : nat -> Prop) (t : tree),
+  forall_nodes P t -> forall_elements P (to_list t).
+Proof.
+  intros.
+  induction t.
+  (* Base case *)
+  simpl in *.
+  assumption.
+
+  (* Step case *)
+  simpl.
+  split.
+  inversion H.
+  destruct H1 as [H1 H2].
+  assumption.
+  apply forall_elements_app.
+  simpl in H.
+  destruct H as [H1 H2].
+  destruct H2 as [H2 H3].
+  apply IHt1.
+  assumption.
+  apply IHt2.
+  simpl in H.
+  destruct H as [H1 H2].
+  destruct H2 as [H2 H3].
+  assumption.
+Qed.
 
 (* Question 6.
 Prove that the result of the sort function is always a binary search tree. *)
 
 Theorem tolist_empty : to_list leaf = nil.
 Proof.
-simpl.
-reflexivity.
+  simpl.
+  reflexivity.
 Qed.
 
-
-Theorem duh : forall T, sort(T) = to_bst (to_list T).
+Theorem sort_def : forall (T : tree), sort(T) = to_bst (to_list T).
 Proof.
-auto.
+  auto.
 Qed.
 
-Theorem duh2: forall T n, bst (insert n (sort T)) <-> bst (insert n (to_bst (to_list T))).
+Theorem sort_def_intuition: forall (T : tree) (n : nat), bst (insert n (sort T)) <-> bst (insert n (to_bst (to_list T))).
 Proof.
-intuition.
+  intuition.
 Qed.
 
-Theorem stuck_on_this3 : forall T1 T2 n, bst(sort (node T1 n T2)) <-> bst( insert n (to_bst(to_list(T1) ++ to_list(T2)))).
+Theorem sort_eq_to_list : forall (T1 T2 : tree) (n : nat), bst (sort (node T1 n T2)) <-> bst (insert n (to_bst(to_list(T1) ++ to_list(T2)))).
 Proof.
-intuition.
+  intuition.
 Qed.
 
-Theorem stuck_on_this2 : forall T1 T2 n, 
-cons n ((to_list T1) ++ (to_list T2)) = to_list(node T1 n T2).
+Theorem to_list_bst : forall (T1 T2 : tree) (n : nat), 
+  cons n ((to_list T1) ++ (to_list T2)) = to_list(node T1 n T2).
 Proof.
-auto.
+  auto.
 Qed.
 
-Theorem stuck_on_this : forall T1 T2 n, 
-  bst (insert n (sort T1)) 
-/\ bst (insert n (sort T2))
--> bst (sort (node T1 n T2)).
+Theorem sort_insert_eq : forall (T1 T2 : tree) (n : nat), 
+  bst (insert n (sort T1)) /\ bst (insert n (sort T2)) -> bst (sort (node T1 n T2)).
 Proof.
-intros.
-destruct H.
-apply stuck_on_this3.
+  intros.
+  destruct H as [H1 H2].
+  unfold sort.
+  simpl.
+  apply insert_correct.
+  rewrite sort_def_intuition in H1.
+  rewrite sort_def_intuition in H2.
+  Suggest.
 
-rewrite duh2 in H.
-rewrite duh2 in H0.
+(*
+  intros.
+  destruct H as [H1 H2].
+  apply sort_eq_to_list.
+  apply insert_correct.
 
+  intros.
+  destruct H as [H1 H2].
+  induction T1.
+  (* Base case *)
+  auto.
 
+  (* Step case *)
+  apply sort_eq_to_list.
+  apply insert_correct.
+  
+  apply sort_eq_to_list in IHT1_1.
+
+  intros.
+  destruct H.
+  apply sort_eq_to_list.
+
+  rewrite sort_def_intuition in H.
+  rewrite sort_def_intuition in H0.
+*)
 
 Admitted.
 
-
-
 Theorem sort_produces_bst : forall (T : tree), bst (sort T).
 Proof.
-intros.
-induction T.
-simpl.
-trivial.
-apply (insert_correct (to_bst(to_list T1)) n) in IHT1.
-apply (insert_correct (to_bst(to_list T2)) n) in IHT2.
-apply stuck_on_this.
-auto.
+  intros.
+  induction T.
+  simpl.
+  trivial.
+  apply (insert_correct (to_bst(to_list T1)) n) in IHT1.
+  apply (insert_correct (to_bst(to_list T2)) n) in IHT2.
+  apply sort_insert_eq.
+  auto.
 Qed.
-
-
 
 Theorem empty_tree : forall (n : nat), bst(insert n leaf).
 Proof.
@@ -330,11 +407,6 @@ Fixpoint bst_prop (P : nat -> tree -> Prop) (T : tree) : Prop :=
   | node l n r => P n T /\ bst_prop P l /\ bst_prop P r
   end.
 
-
-
-
-
-
 (* Question 7.
 Given the predicate occurs expressing that an element belongs to a tree, prove
 that the sorted version of a tree contains the same elements as the original
@@ -351,19 +423,19 @@ Fixpoint occurs (T : tree) (e: nat) {struct T} : Prop :=
 
 Theorem sort_contains_same_element : forall (T : tree)(e : nat), occurs T e <-> occurs (sort T) e.
 Proof.
-intros.
-induction T.
-simpl.
-tauto.
-destruct IHT1.
-destruct IHT2.
-split.
-intros.
-simpl in H3.
-destruct H3.
-unfold sort.
-simpl.
-Suggest.
+  intros.
+  induction T.
+  simpl.
+  tauto.
+  destruct IHT1.
+  destruct IHT2.
+  split.
+  intros.
+  simpl in H3.
+  destruct H3.
+  unfold sort.
+  simpl.
+  Suggest.
 
 
 
@@ -371,13 +443,66 @@ Admitted.
 
 Lemma eq_insert: forall (T : tree)(e : nat), occurs (insert e T) e.
 Proof.
-intros.
-induction T.
-simpl.
-auto.
-simpl.
+  intros.
+  induction T.
+  simpl.
+  auto.
+  simpl.
 Qed.
 
 End bst_sort.
 
 
+(*
+Theorem alpha : forall (T : tree) (n : nat),
+  bst T -> bst (sort T).
+Proof.
+  intros.
+  induction T.
+  (* Base case *)
+  auto.
+
+  (* Step case *)
+  inversion H.
+  intuition.
+  unfold sort.
+  unfold to_bst.
+  apply insert_correct.
+  rewrite H4.
+  apply insert_correct.
+  unfold to_bst.
+  apply H3.
+  simpl in *.
+  destruct (ltb_reflect n n0).
+  simpl.
+  unfold sort.
+
+Theorem tes : forall (T : tree) (n : nat),
+  bst T -> bst (sort).
+Proof.
+  intros.
+  induction T.
+  (* Base case *)
+  auto.
+
+  (* Step case *)
+  inversion H.
+  destruct H1 as [H1 H2].
+  destruct H2 as [H2 H3].
+  intuition.
+  simpl.
+  apply insert_correct.
+  apply to_list_bst.
+  
+  
+
+Theorem list_comb_bst : forall (T1 T2 : tree) (n : nat),
+  bst T1 /\ bst T2 -> bst (to_bst(to_list(T1) ++ to_list(T2))).
+Proof.
+  intros.
+  induction T1.
+  simpl.
+  destruct H as [H1 H2].
+  apply forall_nodes.
+  apply to_list.
+*)
