@@ -237,6 +237,8 @@ Fixpoint to_bst (T : natlist) : tree :=
 Definition sort (T : tree) : tree := 
   to_bst (to_list T).
 
+
+
 Eval compute in (to_list test_type).
 Eval compute in (sort test_type).
 
@@ -311,72 +313,16 @@ Qed.
 (* Question 6.
 Prove that the result of the sort function is always a binary search tree. *)
 
-Theorem tolist_empty : to_list leaf = nil.
+Theorem to_bst_produces_bst : forall (T : natlist), bst (to_bst T).
 Proof.
-  simpl.
-  reflexivity.
+intuition.
+induction T.
+simpl.
+trivial.
+simpl.
+apply insert_correct.
+auto.
 Qed.
-
-Theorem sort_def : forall (T : tree), sort(T) = to_bst (to_list T).
-Proof.
-  auto.
-Qed.
-
-Theorem sort_def_intuition: forall (T : tree) (n : nat), bst (insert n (sort T)) <-> bst (insert n (to_bst (to_list T))).
-Proof.
-  intuition.
-Qed.
-
-Theorem sort_eq_to_list : forall (T1 T2 : tree) (n : nat), bst (sort (node T1 n T2)) <-> bst (insert n (to_bst(to_list(T1) ++ to_list(T2)))).
-Proof.
-  intuition.
-Qed.
-
-Theorem to_list_bst : forall (T1 T2 : tree) (n : nat), 
-  cons n ((to_list T1) ++ (to_list T2)) = to_list(node T1 n T2).
-Proof.
-  auto.
-Qed.
-
-Theorem sort_insert_eq : forall (T1 T2 : tree) (n : nat), 
-  bst (insert n (sort T1)) /\ bst (insert n (sort T2)) -> bst (sort (node T1 n T2)).
-Proof.
-  intros.
-  destruct H as [H1 H2].
-  unfold sort.
-  simpl.
-  apply insert_correct.
-  rewrite sort_def_intuition in H1.
-  rewrite sort_def_intuition in H2.
-  Suggest.
-
-(*
-  intros.
-  destruct H as [H1 H2].
-  apply sort_eq_to_list.
-  apply insert_correct.
-
-  intros.
-  destruct H as [H1 H2].
-  induction T1.
-  (* Base case *)
-  auto.
-
-  (* Step case *)
-  apply sort_eq_to_list.
-  apply insert_correct.
-  
-  apply sort_eq_to_list in IHT1_1.
-
-  intros.
-  destruct H.
-  apply sort_eq_to_list.
-
-  rewrite sort_def_intuition in H.
-  rewrite sort_def_intuition in H0.
-*)
-
-Admitted.
 
 Theorem sort_produces_bst : forall (T : tree), bst (sort T).
 Proof.
@@ -384,28 +330,8 @@ Proof.
   induction T.
   simpl.
   trivial.
-  apply (insert_correct (to_bst(to_list T1)) n) in IHT1.
-  apply (insert_correct (to_bst(to_list T2)) n) in IHT2.
-  apply sort_insert_eq.
-  auto.
+  apply to_bst_produces_bst.
 Qed.
-
-Theorem empty_tree : forall (n : nat), bst(insert n leaf).
-Proof.
-  intros.
-  unfold insert.
-  constructor.
-  simpl.
-  auto.
-  simpl.
-  auto.
-Qed.
-
-Fixpoint bst_prop (P : nat -> tree -> Prop) (T : tree) : Prop :=
-  match T with
-  | leaf => True (* A leaf trivially satisfies the bst property *)
-  | node l n r => P n T /\ bst_prop P l /\ bst_prop P r
-  end.
 
 (* Question 7.
 Given the predicate occurs expressing that an element belongs to a tree, prove
