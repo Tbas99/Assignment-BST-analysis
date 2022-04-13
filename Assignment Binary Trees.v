@@ -11,6 +11,8 @@ Require Import List.
 
 (* Notations *)
 Notation "a >=? b" := (Nat.leb b a) (at level 70) : nat_scope. (* Issue with Nat not defining this? *)
+Notation "a :: b" := (cons a b). (* Issue with Nat not defining this? *)
+
 
 (* Define a tree type *)
 Inductive tree : Set :=
@@ -94,7 +96,7 @@ Fixpoint insert (N : nat) (T : tree) : tree :=
   | node l n r => 
       if (N <? n) then node (insert N l) n r 
       else if (n <? N) then node l n (insert N r) 
-      else node l n r
+      else node l N r
   end.
 
 (* Let us prove the correctness of our insert function *)
@@ -165,6 +167,12 @@ Proof.
   intuition.
 Qed.
 
+
+Lemma equal : forall(n1 n2: nat), ~n1 < n2 /\ ~n2 < n1 -> n1 = n2.
+Proof.
+only 1: intros a; only 1: intro m; only 1: intuition; only 1: Nat.Private_Tac.order.
+Qed.
+
 (* Let us now formally prove the validity of the insert function *)
 Theorem insert_correct : forall (T : tree) (n : nat), bst T -> bst (insert n T).
 Proof.
@@ -193,9 +201,13 @@ Proof.
   split; assumption.
   simpl.
   split.
+  rewrite (equal n n0).
   assumption.
+  intuition.
   split.
+  rewrite (equal n n0).
   assumption.
+  intuition.
   split; assumption.
 Qed.
 
@@ -338,97 +350,191 @@ Given the predicate occurs expressing that an element belongs to a tree, prove
 that the sorted version of a tree contains the same elements as the original
 one *)
 
-Fixpoint occurs (T : tree) (e: nat) {struct T} : Prop :=
+Variables occurs : nat -> tree -> Prop.
+
+(* De occurs moet blijkbaar via een predefined predicate, ipv dat je die zelf moet maken... *)
+
+(*
+Theorem forany_node_insert : forall (t : tree)(k : nat),
+    occurs k t -> forall(l: nat), occurs k (insert l t).
+Proof.
+  intros.
+  induction t.
+  simpl.
+  intuition.
+
+  inversion H.
+  simpl in *.
+  destruct (k <? n).
+  simpl.
+  intuition.
+  destruct (n <? k).
+  simpl.
+  intuition.
+  simpl.
+  intuition.
+  simpl in *. 
+  destruct (k <? n). 
+  simpl. 
+  intuition. 
+  destruct (n <? k). 
+  simpl. 
+  intuition. 
+  simpl. 
+  intuition.
+Admitted. 
+
+Fixpoint contains (T : natlist) (n: nat) {struct T} : Prop :=
   match T with
-  | leaf => False
-  | node l n r => n = e \/ occurs l n \/ occurs r n
+  | nil => False
+  | cons x xs => x = n \/ contains xs n
   end.
 
+Theorem contains_instead: forall (T : tree)(n : nat), occurs (insert n T) n.
+Proof.
+
+intros.
+
+induction T.
+simpl.
+auto.
+
+simpl.
+destruct (n <? n0).
+right.
+intuition.
+destruct (n0 <? n).
+right.
+intuition.
+constructor.
+intuition.
+Qed.
+*)
+
+Theorem sort_contains_same_element : forall (T : tree)(n : nat), occurs n T <-> occurs n (sort T).
+Proof.
+  intros.
+  intuition.
+  induction T.
+
+  intuition.
+
+  simpl in *.
+  intuition.
+
+  unfold sort.
+  simpl.
+  subst.
+
+  
+  intuition.
+  unfold sort.
+  simpl.
+
+Admitted.
 
 
 
-Theorem sort_contains_same_element : forall (T : tree)(e : nat), occurs T e <-> occurs (sort T) e.
+(* ------------------- Part 2 ------------------- *)
+
+
+(* Q1. Define a function treeMin that will return the value of the minimal node in a
+tree. You may want to use Coq.Arith.Min for the minimum function. Note
+that every function in Coq needs to be total and you will need to decide what
+this function should return applied on an empty tree. To do this, use the
+option type. Check the definition of option by doing Print option. *)
+
+Print option.
+
+Definition min_option (no1 no2 : option nat) (n : nat) :=
+  match no1, no2 with 
+   | None, None       => n
+   | None, Some r     => min r n
+   | Some l, None     => min l n
+   | Some l, Some r   => min l (min r n)
+  end.
+
+Fixpoint treeMin_option(T: tree) : option nat :=
+  match T with
+  | leaf => None
+  | node l n r => Some (min_option (treeMin_option l) (treeMin_option r) n)
+  end.
+
+Definition treeMin(T: tree) : nat :=
+  match (treeMin_option T) with
+  | None => 0
+  | Some n => n
+  end.
+
+Eval compute in (treeMin test_type).
+
+
+
+(* Q2. Given the predicate occurs expressing that an element belongs to a tree,
+prove correctness of the treeMin function, i.e. prove that:
+– the minimal element belongs to the tree and
+– that the values in all nodes are greater or equal than the minimal value. *)
+
+
+Theorem min_occur_proof : forall (T : tree), occurs (treeMin T) T.
 Proof.
   intros.
   induction T.
-  simpl.
-  tauto.
-  destruct IHT1.
-  destruct IHT2.
-  split.
-  intros.
-  simpl in H3.
-  destruct H3.
-  unfold sort.
-  simpl.
-  Suggest.
+  compute.
+Admitted.
+
+
+(* Q3. Define a function leftmost that given a tree will return a value of its leftmost node. *)
+
+Fixpoint leftmost(T: tree) : nat :=
+  match T with
+  | leaf => 0
+  | node leaf n r => n
+  | node l n r => leftmost l
+  end.
+
+Eval compute in (leftmost test_type).
+
+
+(* Q4. Prove that the minimal element of a binary search tree (use the predicate bst
+on tree) is its leftmost node *)
+
+Theorem bst_left_min : forall (T : tree), bst T -> leftmost T = treeMin T.
+Proof.
+intuition.
+induction T.
+auto.
+simpl in *.
+intuition.
+
+Admitted.
+
+
+
+(* Q5. Define a function search that given a binary search tree will check whether a
+given natural number occurs in the tree. It should use the fact that the tree
+is a binary search tree so it should look only on one branch of a tree, instead
+of on all of its nodes. *)
+
+Fixpoint search (N: nat)(T: tree) : Prop :=
+  match T with
+  | leaf => False
+  | node l n r => 
+      if (n =? n) then True 
+      else if (N <? n) then search N l 
+      else search N r
+  end.
+
+
+Theorem search_correct: forall (t: tree)(n : nat), bst t -> (occurs n t <-> search n t).
+Proof.
+intuition.
+induction t.
+simpl in *.
 
 
 
 Admitted.
 
-Lemma eq_insert: forall (T : tree)(e : nat), occurs (insert e T) e.
-Proof.
-  intros.
-  induction T.
-  simpl.
-  auto.
-  simpl.
-Qed.
-
-End bst_sort.
 
 
-(*
-Theorem alpha : forall (T : tree) (n : nat),
-  bst T -> bst (sort T).
-Proof.
-  intros.
-  induction T.
-  (* Base case *)
-  auto.
-
-  (* Step case *)
-  inversion H.
-  intuition.
-  unfold sort.
-  unfold to_bst.
-  apply insert_correct.
-  rewrite H4.
-  apply insert_correct.
-  unfold to_bst.
-  apply H3.
-  simpl in *.
-  destruct (ltb_reflect n n0).
-  simpl.
-  unfold sort.
-
-Theorem tes : forall (T : tree) (n : nat),
-  bst T -> bst (sort).
-Proof.
-  intros.
-  induction T.
-  (* Base case *)
-  auto.
-
-  (* Step case *)
-  inversion H.
-  destruct H1 as [H1 H2].
-  destruct H2 as [H2 H3].
-  intuition.
-  simpl.
-  apply insert_correct.
-  apply to_list_bst.
-  
-  
-
-Theorem list_comb_bst : forall (T1 T2 : tree) (n : nat),
-  bst T1 /\ bst T2 -> bst (to_bst(to_list(T1) ++ to_list(T2))).
-Proof.
-  intros.
-  induction T1.
-  simpl.
-  destruct H as [H1 H2].
-  apply forall_nodes.
-  apply to_list.
-*)
